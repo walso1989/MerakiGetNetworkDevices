@@ -4,6 +4,7 @@ import json
 import meraki
 import pandas
 import os
+import configparser
 
 def get_organizationid(API_KEY, org_name):
     # get organization_ID
@@ -11,7 +12,7 @@ def get_organizationid(API_KEY, org_name):
     response = dashboard.organizations.getOrganizations()
     org_id = 0
     print(f" response from API {json.dumps(response, indent=2)}")
-    org_name = "devnet"
+    org_name = "CRG-CORP"
     print(f" Looking for Organizaion: {org_name}")
     for org in response:
         if org_name.lower() in org["name"].lower():
@@ -28,13 +29,34 @@ def get_networksid(API_KEY, organization_id):
     print(f" response from API {json.dumps(response, indent=2)}")
     return (response)
 
+def get_organizationnames(API_KEY,network_id):
+    networknames={}
+    cont=0
+    dashboard = meraki.DashboardAPI(API_KEY)
+    for networks in network_id:
+        checkingid=networks["id"]
+
+        networknames=response["id"]["name"]
+        cont=cont+1
+    return(networknames)
+
 
 def main():
-    #Variable definitions
-    API_KEY = "1f02da6afc079e16960440836c0a0e522f776d80"
-    org_name = "FIFCO"
     current_path = os.getcwd()
-    csv_file = current_path + "//VLAN-Info.csv"
+
+    #reading config values from config file
+    config = configparser.RawConfigParser()
+    configfile_path=current_path+"//config.cfg"
+    config.read(configfile_path)
+    config_dict = dict(config.items('config'))
+
+    #Variable definitions
+    API_KEY = config_dict["api_key"]
+    org_name = config_dict["org_name"]
+
+    csv_file = current_path + "//"+config_dict["csv_file_name"]
+
+
 
     #getting organization ID and Networks within the organization
     organization_id = get_organizationid(API_KEY, org_name)
@@ -45,12 +67,26 @@ def main():
         checking_network = network["id"]
         print(f" Extracting list of VLANs for network ID: {checking_network}")
         dashboard = meraki.DashboardAPI(API_KEY)
+        insert_headers=True
         try:
             response = dashboard.appliance.getNetworkApplianceVlans(checking_network)
+            response2 = dashboard.networks.getNetwork(checking_network)
+            vlansdetails = pandas.DataFrame(response)
+
+            df = pandas.DataFrame(list(response2.items()))
+            networkdetails = pandas.DataFrame.from_dict(response2)
+            # df=pandas.merge(vlansdetails,networkdetails,on='networkId')
+
+
             print(f"{json.dumps(response, indent=2)}")
             try:
-                df = pandas.DataFrame(response)
-                df.to_csv(csv_file,index=True,sep=',',mode='a')
+                if insert_headers == True:
+                    df = pandas.DataFrame(response)
+                    df.to_csv(csv_file,index=True,sep=',',mode='a')
+                    insert_headers=False
+                else:
+                    df = pandas.DataFrame(response)
+                    df.to_csv(csv_file, index=True, sep=',', mode='a',header=False)
             except csv as strerror:
                 logger.debug("Error creating File %s " + strerror)
 
