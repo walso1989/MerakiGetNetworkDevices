@@ -8,7 +8,7 @@ import configparser
 
 def get_organizationid(API_KEY, org_name):
     # get organization_ID
-    dashboard = meraki.DashboardAPI(API_KEY)
+    dashboard = meraki.DashboardAPI(API_KEY,output_log=False)
     response = dashboard.organizations.getOrganizations()
     org_id = 0
     print(f" response from API {json.dumps(response, indent=2)}")
@@ -24,21 +24,20 @@ def get_organizationid(API_KEY, org_name):
 
 def get_networksid(API_KEY, organization_id):
     print(f"Looking for networks in organization id {organization_id}")
-    dashboard = meraki.DashboardAPI(API_KEY)
+    dashboard = meraki.DashboardAPI(API_KEY,output_log=False)
     response = dashboard.organizations.getOrganizationNetworks(organization_id)
     print(f" response from API {json.dumps(response, indent=2)}")
     return (response)
 
 def get_organizationnames(API_KEY,network_id):
-    networknames={}
+    network_names={}
     cont=0
-    dashboard = meraki.DashboardAPI(API_KEY)
+    dashboard = meraki.DashboardAPI(API_KEY,output_log=False)
     for networks in network_id:
-        checkingid=networks["id"]
-
-        networknames=response["id"]["name"]
+        checking_id=networks["id"]
+        network_names=response["id"]["name"]
         cont=cont+1
-    return(networknames)
+    return(network_names)
 
 
 def main():
@@ -66,34 +65,31 @@ def main():
     for network in network_id:
         checking_network = network["id"]
         print(f" Extracting list of VLANs for network ID: {checking_network}")
-        dashboard = meraki.DashboardAPI(API_KEY)
+        dashboard = meraki.DashboardAPI(API_KEY,output_log=False)
         insert_headers=True
         try:
             #get information about VLANS and Networks
             response = dashboard.appliance.getNetworkApplianceVlans(checking_network)
             response2 = dashboard.networks.getNetwork(checking_network)
 
-            #Changes the dictionaries to dataframes
-            vlansdetails = pandas.DataFrame(response)
-            networkdetails = pandas.DataFrame(response2.items())
+            #Transforms the outputs to a JSON and then move them to a dict for easy manipulation
+            vlans_details=json.dumps(response,indent=3)
+            network_details=json.dumps(response2,indent=3)
+            dict_vlans_details = json.loads(vlans_details)
+            dict_network_details = json.loads(network_details)
 
-            #Transpose the datafram and remove first column -> this comes as a list so it is changed to dataframe the columns has integer names
-            #here we transpose the dataframe (Invert colums and rows) then rename the colums and drop the first line of code
-            networkdetails=pandas.DataFrame.transpose(networkdetails)
-            networkdetails.rename(columns={0: 'id', 1:"organizationId",2:"productTypes",3: "url",4: "name", 5:"timeZone",6: "enrollmentString",7: "tags",8: "notes",9: "isBoundToConfigTemplate"}, inplace=True)
-            networkdetails=networkdetails.iloc[1:,:]
+            #Get's the network name from the dict and add it to the vlan details dict
+            network_name=dict_network_details["name"]
+            for vlans in dict_vlans_details:
+                vlans["networkName"]=network_name
 
-            #merging both dataframes ***IT DOES NOT WORK YET
-            df_merged = pandas.merge(vlansdetails,networkdetails,on=['networkId', 'id'])
+            df = pandas.DataFrame(dict_vlans_details)
 
-            print(f"{json.dumps(response, indent=2)}")
             try:
                 if insert_headers == True:
-                    df = pandas.DataFrame(response)
                     df.to_csv(csv_file,index=True,sep=',',mode='a')
                     insert_headers=False
                 else:
-                    df = pandas.DataFrame(response)
                     df.to_csv(csv_file, index=True, sep=',', mode='a',header=False)
             except csv as strerror:
                 logger.debug("Error creating File %s " + strerror)
@@ -104,5 +100,6 @@ def main():
             print(f"reason = {e.reason}")
             print(f"error = {e.message}")
             continue
+    exit(0)
 if __name__ == "__main__":
     main()
