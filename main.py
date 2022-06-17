@@ -69,14 +69,22 @@ def main():
         dashboard = meraki.DashboardAPI(API_KEY)
         insert_headers=True
         try:
+            #get information about VLANS and Networks
             response = dashboard.appliance.getNetworkApplianceVlans(checking_network)
             response2 = dashboard.networks.getNetwork(checking_network)
+
+            #Changes the dictionaries to dataframes
             vlansdetails = pandas.DataFrame(response)
+            networkdetails = pandas.DataFrame(response2.items())
 
-            df = pandas.DataFrame(list(response2.items()))
-            networkdetails = pandas.DataFrame.from_dict(response2)
-            # df=pandas.merge(vlansdetails,networkdetails,on='networkId')
+            #Transpose the datafram and remove first column -> this comes as a list so it is changed to dataframe the columns has integer names
+            #here we transpose the dataframe (Invert colums and rows) then rename the colums and drop the first line of code
+            networkdetails=pandas.DataFrame.transpose(networkdetails)
+            networkdetails.rename(columns={0: 'id', 1:"organizationId",2:"productTypes",3: "url",4: "name", 5:"timeZone",6: "enrollmentString",7: "tags",8: "notes",9: "isBoundToConfigTemplate"}, inplace=True)
+            networkdetails=networkdetails.iloc[1:,:]
 
+            #merging both dataframes ***IT DOES NOT WORK YET
+            df_merged = pandas.merge(vlansdetails,networkdetails,on=['networkId', 'id'])
 
             print(f"{json.dumps(response, indent=2)}")
             try:
