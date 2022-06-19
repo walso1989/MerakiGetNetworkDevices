@@ -6,39 +6,33 @@ import pandas
 import os
 import configparser
 
-def get_organizationid(API_KEY, org_name):
+def api_connect(config_dict):
+    print(f"Connecting to Meraki API")
+    dashboard = meraki.DashboardAPI(config_dict["api_key"], output_log=False)
+    return (dashboard)
+
+def get_organization_id(config_dict):
     # get organization_ID
-    dashboard = meraki.DashboardAPI(API_KEY,output_log=False)
+    dashboard=api_connect(config_dict)
     response = dashboard.organizations.getOrganizations()
     org_id = 0
     print(f" response from API {json.dumps(response, indent=2)}")
-    org_name = "CRG-CORP"
-    print(f" Looking for Organizaion: {org_name}")
+    # print(f" Looking for Organizaion: {config_dict[org_name]}")
     for org in response:
-        if org_name.lower() in org["name"].lower():
-            org_id = org["id"]
+        if config_dict["org_name"].lower() in org["name"].lower():
+            return(org["id"])
+            print(f" Organizaion Id for {org_name} is {org_id}")
             break
-    print(f" Organizaion Id for {org_name} is {org_id}")
-    return (org_id)
+    print(f" Please check config file and add a valid organization name")
 
 
-def get_networksid(API_KEY, organization_id):
+
+def get_networks_id(config_dict, organization_id):
     print(f"Looking for networks in organization id {organization_id}")
-    dashboard = meraki.DashboardAPI(API_KEY,output_log=False)
+    dashboard=api_connect(config_dict)
     response = dashboard.organizations.getOrganizationNetworks(organization_id)
     print(f" response from API {json.dumps(response, indent=2)}")
     return (response)
-
-def get_organizationnames(API_KEY,network_id):
-    network_names={}
-    cont=0
-    dashboard = meraki.DashboardAPI(API_KEY,output_log=False)
-    for networks in network_id:
-        checking_id=networks["id"]
-        network_names=response["id"]["name"]
-        cont=cont+1
-    return(network_names)
-
 
 def main():
     current_path = os.getcwd()
@@ -50,22 +44,17 @@ def main():
     config_dict = dict(config.items('config'))
 
     #Variable definitions
-    API_KEY = config_dict["api_key"]
-    org_name = config_dict["org_name"]
-
     csv_file = current_path + "//"+config_dict["csv_file_name"]
 
-
-
     #getting organization ID and Networks within the organization
-    organization_id = get_organizationid(API_KEY, org_name)
-    network_id = get_networksid(API_KEY, organization_id)
+    organization_id = get_organization_id(config_dict)
+    network_id = get_networks_id(config_dict, organization_id)
 
     #to extract VLAN information from the different networks in the organization
     for network in network_id:
         checking_network = network["id"]
         print(f" Extracting list of VLANs for network ID: {checking_network}")
-        dashboard = meraki.DashboardAPI(API_KEY,output_log=False)
+        dashboard = api_connect(config_dict)
         insert_headers=True
         try:
             #get information about VLANS and Networks
@@ -83,23 +72,14 @@ def main():
             for vlans in dict_vlans_details:
                 vlans["networkName"]=network_name
 
-            df = pandas.DataFrame(dict_vlans_details)
-
-            try:
-                if insert_headers == True:
-                    df.to_csv(csv_file,index=True,sep=',',mode='a')
-                    insert_headers=False
-                else:
-                    df.to_csv(csv_file, index=True, sep=',', mode='a',header=False)
-            except csv as strerror:
-                logger.debug("Error creating File %s " + strerror)
-
         except meraki.APIError as e:
             print(f"Meraki API error: {e}")
             print(f"status code = {e.status}")
             print(f"reason = {e.reason}")
             print(f"error = {e.message}")
             continue
+
+
     exit(0)
 if __name__ == "__main__":
     main()
