@@ -12,39 +12,43 @@ def api_connect(config_dict):
     return (dashboard)
 
 def get_organization_id(config_dict):
-    # get organization_ID
+    # print(f" Looking for Organizaion: {config_dict[org_name]}")
+
+    org_id = 0
+
     dashboard=api_connect(config_dict)
     response = dashboard.organizations.getOrganizations()
-    org_id = 0
+
     print(f" response from API {json.dumps(response, indent=2)}")
-    # print(f" Looking for Organizaion: {config_dict[org_name]}")
+
     for org in response:
         if config_dict["org_name"].lower() in org["name"].lower():
             return(org["id"])
-            print(f" Organizaion Id for {org_name} is {org_id}")
+            print(f" Organization Id for {org_name} is {org_id}")
             break
-    print(f" Please check config file and add a valid organization name")
-
-
+        else:
+            print(f" Please check config file and add a valid organization name")
 
 def get_networks_id(config_dict, organization_id):
     print(f"Looking for networks in organization id {organization_id}")
+
     dashboard=api_connect(config_dict)
     response = dashboard.organizations.getOrganizationNetworks(organization_id)
+
     print(f" response from API {json.dumps(response, indent=2)}")
+
     return (response)
 
 def main():
+    # Variable definitions
     current_path = os.getcwd()
+    csv_file = current_path + "//" + config_dict["csv_file_name"]
 
     #reading config values from config file
     config = configparser.RawConfigParser()
     configfile_path=current_path+"//config.cfg"
     config.read(configfile_path)
     config_dict = dict(config.items('config'))
-
-    #Variable definitions
-    csv_file = current_path + "//"+config_dict["csv_file_name"]
 
     #getting organization ID and Networks within the organization
     organization_id = get_organization_id(config_dict)
@@ -78,7 +82,9 @@ def main():
             print(f"reason = {e.reason}")
             print(f"error = {e.message}")
             continue
-
+        #writting information to JSON file
+        with open('vlan-info.json', 'a') as f:
+            json.dump(dict_vlans_details, f,indent=3)
 
     exit(0)
 if __name__ == "__main__":
