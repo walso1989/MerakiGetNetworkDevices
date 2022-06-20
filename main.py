@@ -12,7 +12,7 @@ def api_connect(config_dict):
     return (dashboard)
 
 def get_organization_id(config_dict):
-    # print(f" Looking for Organizaion: {config_dict[org_name]}")
+    print(f" Looking for Organizaion: {config_dict['org_name']}")
 
     org_id = 0
 
@@ -40,15 +40,18 @@ def get_networks_id(config_dict, organization_id):
     return (response)
 
 def main():
-    # Variable definitions
     current_path = os.getcwd()
-    csv_file = current_path + "//" + config_dict["csv_file_name"]
 
-    #reading config values from config file
+    # reading config values from config file
     config = configparser.RawConfigParser()
-    configfile_path=current_path+"//config.cfg"
+    configfile_path = current_path + "//config.cfg"
     config.read(configfile_path)
     config_dict = dict(config.items('config'))
+
+    # Variable definitions
+    csv_file = current_path + "//" + config_dict["csv_file_name"]
+    final_info=[]
+
 
     #getting organization ID and Networks within the organization
     organization_id = get_organization_id(config_dict)
@@ -82,10 +85,16 @@ def main():
             print(f"reason = {e.reason}")
             print(f"error = {e.message}")
             continue
-        #writting information to JSON file
-        with open('vlan-info.json', 'a') as f:
-            json.dump(dict_vlans_details, f,indent=3)
+
+        final_info.append(dict_vlans_details)
+
+    with open('vlan-info.json', 'a') as f:
+        json.dump(final_info, f,indent=3)
+
+    df = pandas.read_json(r'vlan-info.json')
+    df.to_csv(r'vlan-info.csv', index=None)
 
     exit(0)
+
 if __name__ == "__main__":
     main()
