@@ -5,6 +5,8 @@ import meraki
 import pandas
 import os
 import configparser
+import datetime
+import itertools
 
 def api_connect(config_dict):
     print(f"Connecting to Meraki API")
@@ -49,7 +51,7 @@ def main():
     config_dict = dict(config.items('config'))
 
     # Variable definitions
-    csv_file = current_path + "//" + config_dict["csv_file_name"]
+    csv_file = current_path + "//outputs//" + config_dict["org_name"] + "_"+  config_dict["csv_file_name"] +"_" + datetime.datetime.now().strftime('%m_%d_%Y_%H_%M_%S')+".csv"
     final_info=[]
 
 
@@ -88,13 +90,14 @@ def main():
 
         final_info.append(dict_vlans_details)
 
-    with open('vlan-info.json', 'a') as f:
+    json_file=current_path + "//outputs//" + config_dict["org_name"] +"_vlan-info_"+datetime.datetime.now().strftime('%m_%d_%Y_%H_%M_%S')+".json"
+    with open(json_file, 'a') as f:
         json.dump(final_info, f,indent=3)
 
-    df = pandas.read_json(r'vlan-info.json')
-    df.to_csv(r'vlan-info.csv', index=None)
-
-    exit(0)
+    #flat list and moving to pandas DF and then file
+    merged = list(itertools.chain(*final_info))
+    df = pandas.DataFrame(merged)
+    df.to_csv(csv_file)
 
 if __name__ == "__main__":
     main()
