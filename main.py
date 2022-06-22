@@ -1,4 +1,15 @@
-# This is a sample Python script.
+# Creator:    Walter J. Solano Vindas
+#             CCIE #55772
+#             wsolano@getcrg.com
+# Script reads a file called config.cfg that should provide information information like organization name, API Key, and output filename (without extension)
+# After that connects to the Meraki cloud, extracts the organization-ID, finds all networks within the organization, and all the vlans within each network
+# dumps the information to a JSON an CSV file for later not review.
+#
+# config.cfg example
+# [config]
+# org_name = XXXX
+# API_KEY = XXXXXX
+# csv_file_name= XXXX
 
 import json
 import meraki
@@ -14,9 +25,8 @@ def api_connect(config_dict):
     return (dashboard)
 
 def get_organization_id(config_dict):
-    print(f" Looking for Organizaion: {config_dict['org_name']}")
-
     org_id = 0
+    print(f" Looking for Organizaion: {config_dict['org_name']}")
 
     dashboard=api_connect(config_dict)
     response = dashboard.organizations.getOrganizations()
@@ -54,7 +64,6 @@ def main():
     csv_file = current_path + "//outputs//" + config_dict["org_name"] + "_"+  config_dict["csv_file_name"] +"_" + datetime.datetime.now().strftime('%m_%d_%Y_%H_%M_%S')+".csv"
     final_info=[]
 
-
     #getting organization ID and Networks within the organization
     organization_id = get_organization_id(config_dict)
     network_id = get_networks_id(config_dict, organization_id)
@@ -67,14 +76,8 @@ def main():
         insert_headers=True
         try:
             #get information about VLANS and Networks
-            response = dashboard.appliance.getNetworkApplianceVlans(checking_network)
-            response2 = dashboard.networks.getNetwork(checking_network)
-
-            #Transforms the outputs to a JSON and then move them to a dict for easy manipulation
-            vlans_details=json.dumps(response,indent=3)
-            network_details=json.dumps(response2,indent=3)
-            dict_vlans_details = json.loads(vlans_details)
-            dict_network_details = json.loads(network_details)
+            dict_vlans_details = dashboard.appliance.getNetworkApplianceVlans(checking_network)
+            dict_network_details = dashboard.networks.getNetwork(checking_network)
 
             #Get's the network name from the dict and add it to the vlan details dict
             network_name=dict_network_details["name"]
