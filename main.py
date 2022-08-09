@@ -1,15 +1,17 @@
 # Creator:    Walter J. Solano Vindas
 #             CCIE #55772
 #             wsolano@getcrg.com
-# Script reads a file called config.cfg that should provide information information like organization name, API Key, and output filename (without extension)
-# After that connects to the Meraki cloud, extracts the organization-ID, finds all networks within the organization, and all the vlans within each network
-# dumps the information to a JSON an CSV file for later not review.
+# Script reads a file called config.cfg that should provide information information like organization name, API Key, and output filename (without extension) and network from where
+# we need to extract the list of HW
+# After that connects to the Meraki cloud, extracts the organization-ID, finds all networks within the organization, compares the name of each network with the one set in the config file
+# Then extracts the information for all the devices in that network and save it to a CSV file
 #
 # config.cfg example
 # [config]
 # org_name = XXXX
 # API_KEY = XXXXXX
 # csv_file_name= XXXX
+# network_name = XXXX
 
 import json
 import meraki
@@ -70,37 +72,14 @@ def main():
 
     #to extract VLAN information from the different networks in the organization
     for network in network_id:
-        checking_network = network["id"]
-        print(f" Extracting list of VLANs for network ID: {checking_network}")
-        dashboard = api_connect(config_dict)
-        insert_headers=True
-        try:
-            #get information about VLANS and Networks
-            dict_vlans_details = dashboard.appliance.getNetworkApplianceVlans(checking_network)
-            dict_network_details = dashboard.networks.getNetwork(checking_network)
+        if network['name']==config_dict['network_name']:
+            print(f"Network found")
+            dashboard = api_connect(config_dict)
+            dict_devices = dashboard.networks.getNetworkDevices(network['id'])
+            df=pandas.DataFrame.from_dict(dict_devices)
+            df.to_csv(csv_file)
+    print(f" Evaluating next network")
 
-            #Get's the network name from the dict and add it to the vlan details dict
-            network_name=dict_network_details["name"]
-            for vlans in dict_vlans_details:
-                vlans["networkName"]=network_name
-
-        except meraki.APIError as e:
-            print(f"Meraki API error: {e}")
-            print(f"status code = {e.status}")
-            print(f"reason = {e.reason}")
-            print(f"error = {e.message}")
-            continue
-
-        final_info.append(dict_vlans_details)
-
-    json_file=current_path + "//outputs//" + config_dict["org_name"] +"_vlan-info_"+datetime.datetime.now().strftime('%m_%d_%Y_%H_%M_%S')+".json"
-    with open(json_file, 'a') as f:
-        json.dump(final_info, f,indent=3)
-
-    #flat list and moving to pandas DF and then file
-    merged = list(itertools.chain(*final_info))
-    df = pandas.DataFrame(merged)
-    df.to_csv(csv_file)
 
 if __name__ == "__main__":
     main()
